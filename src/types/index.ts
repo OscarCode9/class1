@@ -18,3 +18,15 @@ export interface HealthStatus {
   timestamp: string;
   version: string;
 }
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateUserDto = Pick<User, "name" | "email">;
+
+export type UpdateUserDto = Partial<CreateUserDto>;

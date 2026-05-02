@@ -1,5 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import type { ApiResponse, HealthStatus } from "../types";
+import { createUserRoutes } from "./users";
 
 const startTime = Date.now();
 
@@ -38,6 +39,8 @@ export function createRoutes(): Router {
       res.json(body);
     }),
   );
+
+  router.use("/users", createUserRoutes());
 
   return router;
 }
