@@ -19,6 +19,23 @@ export interface HealthStatus {
   version: string;
 }
 
+export const TASK_STATUSES = [
+  "pending",
+  "in_progress",
+  "completed",
+  "cancelled",
+] as const;
+
+export const TASK_PRIORITIES = [
+  "low",
+  "medium",
+  "high",
+  "critical",
+] as const;
+
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+
 export interface User {
   id: string;
   name: string;
@@ -30,3 +47,25 @@ export interface User {
 export type CreateUserDto = Pick<User, "name" | "email">;
 
 export type UpdateUserDto = Partial<CreateUserDto>;
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  tags: string[];
+  dueDate: string | null;
+  assigneeId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTaskDto {
+  title: string;
+  description: string;
+  priority: TaskPriority;
+  tags: string[];
+  dueDate: string | null;
+  assigneeId: string | null;
+}

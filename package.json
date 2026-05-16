@@ -7,7 +7,7 @@
     "dev": "bun --hot src/index.ts",
     "start": "bun src/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "bash test/health.test.sh"
+    "test": "bun test && bash test/health.test.sh && bash test/tasks.test.sh"
   },
   "devDependencies": {
     "@types/bun": "latest",
