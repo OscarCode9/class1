@@ -1,5 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import type { ApiResponse, HealthStatus } from "../types";
+import { createAuthRoutes } from "./auth";
 import { createTaskRoutes } from "./tasks";
 import { createUserRoutes } from "./users";
 
@@ -41,6 +42,7 @@ export function createRoutes(): Router {
     }),
   );
 
+  router.use("/auth", createAuthRoutes());
   router.use("/users", createUserRoutes());
   router.use("/tasks", createTaskRoutes());
 

@@ -1,15 +1,32 @@
 # class1
 
-To install dependencies:
+## Backend
+
+Instala dependencias del backend:
 
 ```bash
 bun install
 ```
 
-To run:
+Levanta el API local:
 
 ```bash
-bun run index.ts
+bun run dev:api
 ```
 
-This project was created using `bun init` in bun v1.3.7. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+## Frontend de registro
+
+Instala dependencias del frontend:
+
+```bash
+cd frontend
+bun install
+```
+
+En otra terminal, corre la UI:
+
+```bash
+bun run dev:web
+```
+
+La app de Vite usa un proxy local para enviar `POST /api/v1/auth/register` al backend en `http://127.0.0.1:3000`.

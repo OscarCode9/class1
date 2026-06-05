@@ -33,3 +33,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # secrets
 github.txt
 *.token
+
+# Agent CLI and local automation tools
+.antigravitycli
+.playwright-mcp
+

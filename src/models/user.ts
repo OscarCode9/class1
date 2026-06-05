@@ -1,53 +1,123 @@
-import { randomUUID } from "node:crypto";
-import type { User, CreateUserDto, UpdateUserDto } from "../types";
+import { prisma } from "../config/prisma";
+import type { User, CreateUserDto, UpdateUserDto, StoredUser } from "../types";
 
 class UserModel {
-  private users: Map<string, User> = new Map();
-
-  findAll(): User[] {
-    return Array.from(this.users.values());
+  async findAll(): Promise<User[]> {
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: "asc" },
+    });
+    return users.map((user) => this.toPublicUser(user));
   }
 
-  findById(id: string): User | undefined {
-    return this.users.get(id);
+  async findById(id: string): Promise<User | undefined> {
+    const user = await prisma.user.findUnique({
+      where: { id },
+    });
+    return user ? this.toPublicUser(user) : undefined;
   }
 
-  findByEmail(email: string): User | undefined {
-    for (const user of this.users.values()) {
-      if (user.email === email) return user;
+  async findByEmail(email: string): Promise<User | undefined> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+    return user ? this.toPublicUser(user) : undefined;
+  }
+
+  async findRecordByEmail(email: string): Promise<StoredUser | undefined> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+    return user ? this.toStoredUser(user) : undefined;
+  }
+
+  async create(dto: CreateUserDto): Promise<User> {
+    const user = await prisma.user.create({
+      data: {
+        name: dto.name,
+        email: dto.email.trim().toLowerCase(),
+      },
+    });
+    return this.toPublicUser(user);
+  }
+
+  async createWithPasswordHash(dto: CreateUserDto & { passwordHash: string }): Promise<User> {
+    const user = await prisma.user.create({
+      data: {
+        name: dto.name,
+        email: dto.email.trim().toLowerCase(),
+        passwordHash: dto.passwordHash,
+      },
+    });
+    return this.toPublicUser(user);
+  }
+
+  async update(id: string, dto: UpdateUserDto): Promise<User | undefined> {
+    try {
+      const data: Record<string, any> = {};
+      if (dto.name !== undefined) data.name = dto.name;
+      if (dto.email !== undefined) data.email = dto.email.trim().toLowerCase();
+
+      const user = await prisma.user.update({
+        where: { id },
+        data,
+      });
+      return this.toPublicUser(user);
+    } catch (error) {
+      return undefined;
     }
-    return undefined;
   }
 
-  create(dto: CreateUserDto): User {
-    const now = new Date().toISOString();
-    const user: User = {
-      id: randomUUID(),
-      name: dto.name,
-      email: dto.email,
-      createdAt: now,
-      updatedAt: now,
+  async delete(id: string): Promise<boolean> {
+    try {
+      await prisma.user.delete({
+        where: { id },
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async reset(): Promise<void> {
+    // Delete dependencies (tasks) first due to foreign keys
+    await prisma.task.deleteMany();
+    await prisma.user.deleteMany();
+  }
+
+  private toPublicUser(user: {
+    id: string;
+    name: string;
+    email: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }): User {
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
     };
-    this.users.set(user.id, user);
-    return user;
   }
 
-  update(id: string, dto: UpdateUserDto): User | undefined {
-    const existing = this.users.get(id);
-    if (!existing) return undefined;
-
-    const updated: User = {
-      ...existing,
-      ...(dto.name !== undefined && { name: dto.name }),
-      ...(dto.email !== undefined && { email: dto.email }),
-      updatedAt: new Date().toISOString(),
+  private toStoredUser(user: {
+    id: string;
+    name: string;
+    email: string;
+    passwordHash: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }): StoredUser {
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      passwordHash: user.passwordHash ?? undefined,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
     };
-    this.users.set(id, updated);
-    return updated;
-  }
-
-  delete(id: string): boolean {
-    return this.users.delete(id);
   }
 }
 

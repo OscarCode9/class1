@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -e
+
+# Resolve symlinks to find the absolute project directory
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+PROJECT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+
+show_help() {
+  echo "Usage: class4 [command]"
+  echo ""
+  echo "Commands:"
+  echo "  up         Start all services (API, frontend, database) in the background"
+  echo "  down       Stop all services"
+  echo "  status     Show status of all services"
+  echo "  logs       View/tail logs of all services"
+  echo "  restart    Restart all services"
+  echo "  db-shell   Open a PostgreSQL psql interactive shell"
+  echo "  test       Run curl-based end-to-end API integration tests"
+  echo "  help       Show this help message"
+}
+
+case "${1:-}" in
+  up)
+    echo "Starting services in Docker..."
+    docker-compose -f "$PROJECT_DIR/docker-compose.yml" up --build -d
+    ;;
+  down)
+    echo "Stopping services..."
+    docker-compose -f "$PROJECT_DIR/docker-compose.yml" down
+    ;;
+  status|ps)
+    docker-compose -f "$PROJECT_DIR/docker-compose.yml" ps
+    ;;
+  logs)
+    docker-compose -f "$PROJECT_DIR/docker-compose.yml" logs -f
+    ;;
+  restart)
+    echo "Restarting services..."
+    docker-compose -f "$PROJECT_DIR/docker-compose.yml" restart
+    ;;
+  db-shell)
+    docker-compose -f "$PROJECT_DIR/docker-compose.yml" exec db psql -U postgres -d class1_db
+    ;;
+  test)
+    if [ -f "$PROJECT_DIR/.env" ]; then
+      export $(grep -v '^#' "$PROJECT_DIR/.env" | xargs)
+    fi
+    export PORT="${PORT:-3000}"
+
+    if ! docker-compose -f "$PROJECT_DIR/docker-compose.yml" ps api | grep -q "Up"; then
+      echo "API container is not running. Starting containers..."
+      docker-compose -f "$PROJECT_DIR/docker-compose.yml" up -d
+      echo "Waiting for services to be ready..."
+      for i in {1..30}; do
+        if curl -s "http://localhost:${PORT}/api/v1/health" | grep -q '"status":"healthy"'; then
+          break
+        fi
+        sleep 1
+      done
+    fi
+    bash "$PROJECT_DIR/test/run-curl-tests.sh"
+    ;;
+  help|*)
+    show_help
+    ;;
+esac

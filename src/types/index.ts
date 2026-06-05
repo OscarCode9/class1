@@ -44,9 +44,22 @@ export interface User {
   updatedAt: string;
 }
 
+export interface StoredUser extends User {
+  passwordHash?: string;
+}
+
 export type CreateUserDto = Pick<User, "name" | "email">;
 
 export type UpdateUserDto = Partial<CreateUserDto>;
+
+export interface RegisterUserDto extends CreateUserDto {
+  password: string;
+}
+
+export interface RegisterResponse {
+  user: User;
+  accessToken: string;
+}
 
 export interface Task {
   id: string;

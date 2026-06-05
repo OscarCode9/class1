@@ -12,4 +12,5 @@ export const config = {
   nodeEnv: env("NODE_ENV", "development"),
   isProduction: process.env.NODE_ENV === "production",
   apiVersion: "v1",
+  accessTokenSecret: env("ACCESS_TOKEN_SECRET", "dev-access-token-secret"),
 } as const;

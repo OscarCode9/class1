@@ -22,13 +22,13 @@ export function createTaskRoutes(): Router {
       const dto = validateCreateTaskInput(req.body);
 
       if (dto.assigneeId) {
-        const assignee = userModel.findById(dto.assigneeId);
+        const assignee = await userModel.findById(dto.assigneeId);
         if (!assignee) {
           throw new AppError(404, "USER_NOT_FOUND", "User not found");
         }
       }
 
-      const task = taskModel.create(dto);
+      const task = await taskModel.create(dto);
 
       const body: ApiResponse<Task> = {
         success: true,

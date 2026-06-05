@@ -17,7 +17,7 @@ export function createUserRoutes(): Router {
   router.get(
     "/",
     asyncHandler(async (_req: Request, res: Response) => {
-      const users = userModel.findAll();
+      const users = await userModel.findAll();
 
       const body: ApiResponse<User[]> = {
         success: true,
@@ -36,7 +36,7 @@ export function createUserRoutes(): Router {
     "/:id",
     asyncHandler(async (req: Request, res: Response) => {
       const id = req.params.id as string;
-      const user = userModel.findById(id);
+      const user = await userModel.findById(id);
 
       if (!user) {
         throw new AppError(404, "USER_NOT_FOUND", "User not found");
@@ -68,12 +68,12 @@ export function createUserRoutes(): Router {
         throw new AppError(400, "VALIDATION_ERROR", "A valid email is required");
       }
 
-      const existing = userModel.findByEmail(email);
+      const existing = await userModel.findRecordByEmail(email);
       if (existing) {
         throw new AppError(409, "EMAIL_EXISTS", "A user with this email already exists");
       }
 
-      const user = userModel.create({ name, email });
+      const user = await userModel.create({ name, email });
 
       const body: ApiResponse<User> = {
         success: true,
@@ -98,7 +98,7 @@ export function createUserRoutes(): Router {
       }
 
       const id = req.params.id as string;
-      const user = userModel.update(id, dto);
+      const user = await userModel.update(id, dto);
 
       if (!user) {
         throw new AppError(404, "USER_NOT_FOUND", "User not found");
@@ -121,7 +121,7 @@ export function createUserRoutes(): Router {
     "/:id",
     asyncHandler(async (req: Request, res: Response) => {
       const id = req.params.id as string;
-      const deleted = userModel.delete(id);
+      const deleted = await userModel.delete(id);
 
       if (!deleted) {
         throw new AppError(404, "USER_NOT_FOUND", "User not found");
