@@ -53,7 +53,7 @@ sequenceDiagram
     Agent->>Agent: Inspect report & fix code if needed
 ```
 
-### Self-Verification Steps for the Agent:
+### Self-Verification Steps for the Agent
 1. **Run the Diagnostic Tool:** Execute `bun run mcp:observe`.
 2. **Check the Exit Code:** 
    - Exit Code `0`: The implementation is correct and fully functional.

@@ -5,6 +5,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createApp } from "../app";
 import type { Server } from "node:http";
+import { Database } from "bun:sqlite";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -343,13 +344,56 @@ async function main() {
 
     // Run Knowledge Base MCP Server diagnostics
     const testDbPath = "/tmp/observability-knowledge-test.db";
-    // Pre-seed mock schema to ensure get_knowledge_stats works
+    // Initialize clean schema
     if (fs.existsSync(testDbPath)) {
       fs.unlinkSync(testDbPath);
     }
-    const db = new (await import("bun:sqlite")).Database(testDbPath);
-    db.run("CREATE TABLE IF NOT EXISTS documents (id INTEGER PRIMARY KEY, url TEXT UNIQUE, title TEXT, source_type TEXT, raw_content TEXT, word_count INTEGER, created_at DATETIME, updated_at DATETIME, tags TEXT)");
-    db.run("CREATE TABLE IF NOT EXISTS chunks (id INTEGER PRIMARY KEY, doc_id INTEGER, content TEXT, embedding BLOB, chunk_index INTEGER, token_count INTEGER, created_at DATETIME)");
+    const db = new Database(testDbPath);
+    db.run(`
+      CREATE TABLE documents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        url TEXT UNIQUE NOT NULL,
+        title TEXT,
+        source_type TEXT CHECK(source_type IN ('article', 'tweet', 'video', 'pdf', 'other')),
+        raw_content TEXT,
+        word_count INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        tags TEXT
+      )
+    `);
+    db.run(`
+      CREATE TABLE chunks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        doc_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        embedding BLOB,
+        chunk_index INTEGER NOT NULL,
+        token_count INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    db.run("CREATE INDEX idx_documents_url ON documents(url)");
+    db.run("CREATE INDEX idx_documents_source_type ON documents(source_type)");
+    db.run("CREATE INDEX idx_documents_created_at ON documents(created_at)");
+    db.run("CREATE INDEX idx_chunks_doc_id ON chunks(doc_id)");
+    db.run("CREATE VIRTUAL TABLE chunks_fts USING fts5(content, content='chunks', content_rowid='id')");
+    db.run(`
+      CREATE TRIGGER chunks_ai AFTER INSERT ON chunks BEGIN
+        INSERT INTO chunks_fts(rowid, content) VALUES (new.id, new.content);
+      END
+    `);
+    db.run(`
+      CREATE TRIGGER chunks_ad AFTER DELETE ON chunks BEGIN
+        INSERT INTO chunks_fts(chunks_fts, rowid, content) VALUES('delete', old.id, old.content);
+      END
+    `);
+    db.run(`
+      CREATE TRIGGER chunks_au AFTER UPDATE ON chunks BEGIN
+        INSERT INTO chunks_fts(chunks_fts, rowid, content) VALUES('delete', old.id, old.content);
+        INSERT INTO chunks_fts(rowid, content) VALUES (new.id, new.content);
+      END
+    `);
     db.close();
 
     const knowledgeResult = await runDiagnosticsForServer(
@@ -363,6 +407,29 @@ async function main() {
         tools: [
           { name: "get_knowledge_stats", args: {} },
           { name: "list_knowledge_documents", args: {} },
+          {
+            name: "ingest_knowledge_document",
+            args: {
+              url: "https://example.com/test-observability",
+              title: "Observability Ingestion Test",
+              sourceType: "article",
+              tags: ["test", "observability"],
+              rawContent: "Observability is the ability to measure the internal states of a system by examining its outputs. In control theory, observability is a measure of how well internal states of a system can be inferred from knowledge of its external outputs.",
+            },
+          },
+          {
+            name: "search_knowledge",
+            args: {
+              query: "internal states of a system",
+              mode: "semantic",
+            },
+          },
+          {
+            name: "delete_knowledge_document",
+            args: {
+              url: "https://example.com/test-observability",
+            },
+          },
         ],
         resources: [],
         prompts: [],
