@@ -430,6 +430,29 @@ async function main() {
               url: "https://example.com/test-observability",
             },
           },
+          {
+            name: "save_memory_fact",
+            args: {
+              category: "preference",
+              factText: "User prefers using Bun over Node.js",
+              entityAssociated: "user",
+            },
+          },
+          {
+            name: "search_agent_memories",
+            args: {
+              query: "user runtime preferences",
+              limit: 2,
+            },
+          },
+          {
+            name: "log_episodic_event",
+            args: {
+              sessionUuid: "observability-session-999",
+              role: "user",
+              content: "Running diagnostics check",
+            },
+          },
         ],
         resources: [],
         prompts: [],

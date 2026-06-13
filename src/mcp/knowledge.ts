@@ -25,10 +25,110 @@ const server = new McpServer({
   version: "1.0.0",
 });
 
+// Helper: Initialize database schema (both RAG and Agent Memory tables)
+function initializeDbSchema(db: Database) {
+  // Create RAG tables if they don't exist
+  db.run(`
+    CREATE TABLE IF NOT EXISTS documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      url TEXT UNIQUE NOT NULL,
+      title TEXT,
+      source_type TEXT CHECK(source_type IN ('article', 'tweet', 'video', 'pdf', 'other')),
+      raw_content TEXT,
+      word_count INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      tags TEXT
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS chunks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      doc_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+      content TEXT NOT NULL,
+      embedding BLOB,
+      chunk_index INTEGER NOT NULL,
+      token_count INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  db.run("CREATE INDEX IF NOT EXISTS idx_documents_url ON documents(url);");
+  db.run("CREATE INDEX IF NOT EXISTS idx_documents_source_type ON documents(source_type);");
+  db.run("CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at);");
+  db.run("CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON chunks(doc_id);");
+
+  try {
+    db.run("CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(content, content='chunks', content_rowid='id');");
+
+    db.run(`
+      CREATE TRIGGER IF NOT EXISTS chunks_ai AFTER INSERT ON chunks BEGIN
+        INSERT INTO chunks_fts(rowid, content) VALUES (new.id, new.content);
+      END;
+    `);
+
+    db.run(`
+      CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
+        INSERT INTO chunks_fts(chunks_fts, rowid, content) VALUES('delete', old.id, old.content);
+      END;
+    `);
+
+    db.run(`
+      CREATE TRIGGER IF NOT EXISTS chunks_au AFTER UPDATE ON chunks BEGIN
+        INSERT INTO chunks_fts(chunks_fts, rowid, content) VALUES('delete', old.id, old.content);
+        INSERT INTO chunks_fts(rowid, content) VALUES (new.id, new.content);
+      END;
+    `);
+  } catch (e) {
+    // Ignore trigger creation errors if they already exist or virtual table is not supported in the exact environment
+    console.error("FTS5 or trigger init issue: ", e);
+  }
+
+  // Create Memory tables if they don't exist
+  db.run(`
+    CREATE TABLE IF NOT EXISTS memory_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_uuid TEXT UNIQUE NOT NULL,
+      title TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS memory_episodes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id INTEGER NOT NULL,
+      step_index INTEGER NOT NULL,
+      role TEXT CHECK(role IN ('user', 'assistant', 'system', 'tool')) NOT NULL,
+      content TEXT NOT NULL,
+      tool_calls TEXT,
+      thoughts TEXT,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (session_id) REFERENCES memory_sessions(id) ON DELETE CASCADE
+    );
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS memory_semantic (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      category TEXT CHECK(category IN ('preference', 'user_profile', 'learning', 'fact')) NOT NULL,
+      fact_text TEXT NOT NULL,
+      embedding BLOB NOT NULL,
+      confidence REAL DEFAULT 1.0,
+      entity_associated TEXT DEFAULT 'user',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+}
+
 // Helper: Open database connection
 function getDb(): Database {
   const db = new Database(DB_PATH);
   db.run("PRAGMA foreign_keys = ON;");
+  initializeDbSchema(db);
   return db;
 }
 
@@ -646,6 +746,241 @@ server.registerTool(
     }
   }
 );
+
+// 7. Save Memory Fact Tool
+server.registerTool(
+  "save_memory_fact",
+  {
+    description: "Save a structured semantic fact or preference about the user or environment to memory",
+    inputSchema: {
+      category: z.enum(["preference", "user_profile", "learning", "fact"]).describe("The memory category"),
+      factText: z.string().describe("The actual fact or preference text to remember"),
+      entityAssociated: z.string().default("user").describe("The entity this fact is associated with"),
+    },
+  },
+  async ({ category, factText, entityAssociated }) => {
+    let db: Database | undefined;
+    try {
+      db = getDb();
+      const embedding = await getEmbedding(factText);
+      const buffer = embeddingToBuffer(embedding);
+
+      const result = db.prepare(`
+        INSERT INTO memory_semantic (category, fact_text, embedding, entity_associated)
+        VALUES (?, ?, ?, ?)
+      `).run(category, factText, buffer, entityAssociated);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              success: true,
+              id: Number(result.lastInsertRowid),
+              category,
+              factText,
+            }, null, 2),
+          },
+        ],
+      };
+    } catch (error: any) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: `Error saving memory fact: ${error.message}` }],
+      };
+    } finally {
+      if (db) db.close();
+    }
+  }
+);
+
+// 8. Search Agent Memories Tool
+server.registerTool(
+  "search_agent_memories",
+  {
+    description: "Search agent semantic memory for facts and preferences using vector similarity search",
+    inputSchema: {
+      query: z.string().describe("The query term to search for (e.g. user preferences or profile facts)"),
+      limit: z.number().min(1).max(10).default(5).describe("Max memories to return"),
+    },
+  },
+  async ({ query, limit }) => {
+    let db: Database | undefined;
+    try {
+      db = getDb();
+      const queryEmbedding = await getEmbedding(query);
+
+      const rows = db.prepare(`
+        SELECT id, category, fact_text, embedding, confidence, entity_associated, created_at
+        FROM memory_semantic
+      `).all() as Array<{
+        id: number;
+        category: string;
+        fact_text: string;
+        embedding: Uint8Array;
+        confidence: number;
+        entity_associated: string;
+        created_at: string;
+      }>;
+
+      const scored = rows.map((r) => {
+        const itemEmbedding = bufferToEmbedding(r.embedding);
+        const score = cosineSimilarity(queryEmbedding, itemEmbedding);
+        return {
+          id: r.id,
+          category: r.category,
+          factText: r.fact_text,
+          confidence: r.confidence,
+          entityAssociated: r.entity_associated,
+          createdAt: r.created_at,
+          score,
+        };
+      });
+
+      // Sort by score descending
+      scored.sort((a, b) => b.score - a.score);
+      const finalResults = scored.slice(0, limit);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              finalResults.map((r) => ({
+                id: r.id,
+                category: r.category,
+                factText: r.factText,
+                confidence: r.confidence,
+                entityAssociated: r.entityAssociated,
+                createdAt: r.createdAt,
+                similarityScore: Number(r.score.toFixed(4)),
+              })),
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (error: any) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: `Error searching memories: ${error.message}` }],
+      };
+    } finally {
+      if (db) db.close();
+    }
+  }
+);
+
+// 9. Delete Memory Fact Tool
+server.registerTool(
+  "delete_memory_fact",
+  {
+    description: "Forget or delete a memory fact from semantic memory by ID",
+    inputSchema: {
+      id: z.number().describe("The ID of the memory fact to delete"),
+    },
+  },
+  async ({ id }) => {
+    let db: Database | undefined;
+    try {
+      db = getDb();
+      const runResult = db.prepare("DELETE FROM memory_semantic WHERE id = ?").run(id);
+
+      if (runResult.changes === 0) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Error: Memory fact with ID ${id} not found.` }],
+        };
+      }
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ success: true, message: `Successfully forgot memory fact ID ${id}.` }, null, 2),
+          },
+        ],
+      };
+    } catch (error: any) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: `Error deleting memory fact: ${error.message}` }],
+      };
+    } finally {
+      if (db) db.close();
+    }
+  }
+);
+
+// 10. Log Episodic Event Tool
+server.registerTool(
+  "log_episodic_event",
+  {
+    description: "Record a conversation step or execution event into the episodic memory log",
+    inputSchema: {
+      sessionUuid: z.string().describe("UUID identifying the chat session"),
+      role: z.enum(["user", "assistant", "system", "tool"]).describe("The role performing the action"),
+      content: z.string().describe("The content of the message, log, or tool output"),
+      thoughts: z.string().optional().describe("Internal reasoning or thoughts of the agent during this step"),
+      toolCalls: z.array(z.any()).optional().describe("Optional list of tool calls executed during this step"),
+    },
+  },
+  async ({ sessionUuid, role, content, thoughts, toolCalls }) => {
+    let db: Database | undefined;
+    try {
+      db = getDb();
+
+      // Find or create session
+      let session = db.prepare("SELECT id FROM memory_sessions WHERE session_uuid = ?").get(sessionUuid) as { id: number } | undefined;
+      let sessionId: number;
+
+      if (!session) {
+        const result = db.prepare(`
+          INSERT INTO memory_sessions (session_uuid, title)
+          VALUES (?, ?)
+        `).run(sessionUuid, `Chat session ${sessionUuid.slice(0, 8)}`);
+        sessionId = Number(result.lastInsertRowid);
+      } else {
+        sessionId = session.id;
+      }
+
+      // Calculate next step index
+      const maxStep = db.prepare("SELECT MAX(step_index) as max_step FROM memory_episodes WHERE session_id = ?").get(sessionId) as { max_step: number | null } | undefined;
+      const stepIndex = (maxStep && maxStep.max_step !== null) ? maxStep.max_step + 1 : 0;
+
+      // Insert episode
+      const toolCallsStr = toolCalls ? JSON.stringify(toolCalls) : null;
+      const result = db.prepare(`
+        INSERT INTO memory_episodes (session_id, step_index, role, content, tool_calls, thoughts)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(sessionId, stepIndex, role, content, toolCallsStr, thoughts || null);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              success: true,
+              episodeId: Number(result.lastInsertRowid),
+              sessionId,
+              stepIndex,
+              role,
+            }, null, 2),
+          },
+        ],
+      };
+    } catch (error: any) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: `Error logging episodic event: ${error.message}` }],
+      };
+    } finally {
+      if (db) db.close();
+    }
+  }
+);
+
 
 // ==========================================
 // BOOT MCP SERVER

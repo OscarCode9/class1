@@ -1,8 +1,9 @@
-import { describe, expect, test, beforeAll, afterAll } from "bun:test";
+import { describe, expect, test, beforeAll, afterAll, beforeEach } from "bun:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { Database } from "bun:sqlite";
 import * as fs from "fs";
+import { consolidateSessionMemory } from "../src/mcp/consolidate";
 
 const TEST_DB_PATH = "/tmp/knowledge-test.db";
 
@@ -325,5 +326,146 @@ describe("Knowledge Base MCP Server Integration Tests", () => {
     const stats = JSON.parse(statsResponse.content[0].text);
     expect(stats.totalDocuments).toBe(0);
     expect(stats.totalChunks).toBe(0);
+  });
+
+  test("should save a semantic memory fact, search for it, and then delete it", async () => {
+    // 1. Save fact
+    const saveRes = (await mcpClient.callTool({
+      name: "save_memory_fact",
+      arguments: {
+        category: "preference",
+        factText: "User prefers using Bun over Node.js for running typescript code",
+        entityAssociated: "user",
+      },
+    })) as any;
+
+    expect(saveRes.isError).toBeUndefined();
+    const saveResult = JSON.parse(saveRes.content[0].text);
+    expect(saveResult.success).toBe(true);
+    expect(saveResult.category).toBe("preference");
+    expect(saveResult.id).toBeNumber();
+
+    const factId = saveResult.id;
+
+    // 2. Search memories (should find the fact we just saved)
+    const searchRes = (await mcpClient.callTool({
+      name: "search_agent_memories",
+      arguments: {
+        query: "typescript runtime preferences",
+        limit: 3,
+      },
+    })) as any;
+
+    expect(searchRes.isError).toBeUndefined();
+    const searchResults = JSON.parse(searchRes.content[0].text);
+    expect(searchResults.length).toBeGreaterThan(0);
+    expect(searchResults[0].factText).toBe("User prefers using Bun over Node.js for running typescript code");
+    expect(searchResults[0].similarityScore).toBeGreaterThan(0.2); // Since we mock embeddings as constant arrays, similarity is 1.0!
+
+    // 3. Delete fact
+    const deleteRes = (await mcpClient.callTool({
+      name: "delete_memory_fact",
+      arguments: {
+        id: factId,
+      },
+    })) as any;
+
+    expect(deleteRes.isError).toBeUndefined();
+    const deleteResult = JSON.parse(deleteRes.content[0].text);
+    expect(deleteResult.success).toBe(true);
+
+    // Verify it's gone
+    const searchAfterDelete = (await mcpClient.callTool({
+      name: "search_agent_memories",
+      arguments: {
+        query: "typescript runtime preferences",
+      },
+    })) as any;
+    const searchResultsAfter = JSON.parse(searchAfterDelete.content[0].text);
+    const found = searchResultsAfter.some((r: any) => r.id === factId);
+    expect(found).toBe(false);
+  });
+
+  test("should log episodic events and retrieve them from the DB", async () => {
+    const sessionUuid = "test-session-12345";
+
+    // Log user message
+    const logUserRes = (await mcpClient.callTool({
+      name: "log_episodic_event",
+      arguments: {
+        sessionUuid,
+        role: "user",
+        content: "Hello agent, please implement the task memory plan.",
+      },
+    })) as any;
+
+    expect(logUserRes.isError).toBeUndefined();
+    const userLogResult = JSON.parse(logUserRes.content[0].text);
+    expect(userLogResult.success).toBe(true);
+    expect(userLogResult.stepIndex).toBe(0);
+
+    // Log assistant reasoning & response
+    const logAssistantRes = (await mcpClient.callTool({
+      name: "log_episodic_event",
+      arguments: {
+        sessionUuid,
+        role: "assistant",
+        content: "I will implement the memory design plan in knowledge.ts",
+        thoughts: "Let's modify the database schema first to support memory tables",
+        toolCalls: [{ name: "replace_file_content", args: {} }],
+      },
+    })) as any;
+
+    expect(logAssistantRes.isError).toBeUndefined();
+    const assistantLogResult = JSON.parse(logAssistantRes.content[0].text);
+    expect(assistantLogResult.success).toBe(true);
+    expect(assistantLogResult.stepIndex).toBe(1);
+
+    // Verify records exist in test DB directly
+    const dbCheck = new Database(TEST_DB_PATH);
+    const episodes = dbCheck.prepare(`
+      SELECT e.* FROM memory_episodes e
+      JOIN memory_sessions s ON e.session_id = s.id
+      WHERE s.session_uuid = ?
+      ORDER BY e.step_index ASC
+    `).all(sessionUuid) as any[];
+
+    dbCheck.close();
+
+    expect(episodes).toHaveLength(2);
+    expect(episodes[0].role).toBe("user");
+    expect(episodes[0].content).toBe("Hello agent, please implement the task memory plan.");
+    expect(episodes[1].role).toBe("assistant");
+    expect(episodes[1].thoughts).toBe("Let's modify the database schema first to support memory tables");
+    expect(JSON.parse(episodes[1].tool_calls)[0].name).toBe("replace_file_content");
+  });
+
+  test("should perform background memory consolidation successfully", async () => {
+    const sessionUuid = "consolidation-session-56789";
+
+    // 1. Log episodic events containing 'Bun'
+    await mcpClient.callTool({
+      name: "log_episodic_event",
+      arguments: {
+        sessionUuid,
+        role: "user",
+        content: "I want to run my tests with Bun today",
+      },
+    });
+
+    // 2. Set MOCK_LLM = true so it runs the rule-based consolidation fallback deterministically
+    process.env.MOCK_LLM = "true";
+    process.env.KNOWLEDGE_DB_PATH = TEST_DB_PATH;
+
+    // 3. Execute memory consolidation
+    await consolidateSessionMemory(sessionUuid);
+
+    // 4. Check if the consolidator digested the episodes and inserted the new semantic memory fact
+    const dbCheck = new Database(TEST_DB_PATH);
+    const memories = dbCheck.prepare("SELECT * FROM memory_semantic WHERE category = 'preference'").all() as any[];
+    dbCheck.close();
+
+    expect(memories).toHaveLength(1);
+    expect(memories[0].fact_text).toContain("prefers using Bun");
   });
 });
