@@ -13,6 +13,7 @@
     "start": "bun src/index.ts",
     "start:mcp": "bun src/mcp/index.ts",
     "start:mcp-knowledge": "bun src/mcp/knowledge.ts",
+    "mcp:observe": "bun src/mcp/observability-client.ts",
     "build:web": "bun --cwd frontend run build",
     "typecheck:web": "bun --cwd frontend run typecheck",
     "typecheck": "tsc --noEmit",
