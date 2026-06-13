@@ -2,6 +2,9 @@ import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mc
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { ApiClient } from "./client.ts";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // Initialize the API client
 const apiClient = new ApiClient();
@@ -401,6 +404,38 @@ server.registerPrompt(
       },
     ],
   })
+);
+
+// Ovents AI Assistant Prompt
+server.registerPrompt(
+  "ovents-users-info",
+  {
+    description: "Retrieve user information with a friendly welcome from the Ovents AI assistant",
+  },
+  async () => {
+    try {
+      const users = await apiClient.listUsers();
+      const usersText = JSON.stringify(users, null, 2);
+      
+      const dirname = fileURLToPath(new URL(".", import.meta.url));
+      const skillPath = join(dirname, "ovents-skill.md");
+      const skillInstructions = readFileSync(skillPath, "utf-8");
+
+      return {
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: `${skillInstructions}\n\n### Datos de Usuarios en Tiempo Real:\n${usersText}`,
+            },
+          },
+        ],
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to load users for Ovents AI assistant prompt: ${error.message}`);
+    }
+  }
 );
 
 // ==========================================

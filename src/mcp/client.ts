@@ -11,7 +11,7 @@ import type {
 } from "../types";
 
 export class ApiClient {
-  private baseUrl: string;
+    private baseUrl: string;
 
   constructor(baseUrl?: string) {
     this.baseUrl = baseUrl || process.env.API_URL || "http://localhost:3000/api/v1";

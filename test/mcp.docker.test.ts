@@ -1,40 +1,41 @@
-import { describe, expect, test, beforeAll, afterAll, beforeEach } from "bun:test";
-import type { Server } from "node:http";
-import { createApp } from "../src/app";
-import { userModel } from "../src/models/user";
+import { describe, expect, test as bunTest, beforeAll, afterAll, beforeEach } from "bun:test";
+import { execSync } from "node:child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
-describe("MCP Server Integration Tests", () => {
-  let server: Server;
-  let baseUrl = "";
+const hasDocker = (() => {
+  try {
+    execSync("docker info", { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+const test = hasDocker ? bunTest : bunTest.skip;
+
+describe("MCP Server Docker Integration Tests", () => {
   let transport: StdioClientTransport;
   let mcpClient: Client;
 
   beforeAll(async () => {
-    // Start Express REST API on a random port
-    const app = createApp();
-    server = await new Promise<Server>((resolve) => {
-      const startedServer = app.listen(0, "127.0.0.1", () => {
-        resolve(startedServer);
-      });
-    });
+    if (!hasDocker) return;
+    // Connect to the already running dockerized REST API inside the docker network
+    const baseUrl = "http://class1-api:3000/api/v1";
 
-    const address = server.address();
-    if (!address || typeof address === "string") {
-      throw new Error("Failed to resolve test server address");
-    }
-
-    baseUrl = `http://127.0.0.1:${address.port}/api/v1`;
-
-    // Initialize MCP client & transport
+    // Initialize MCP client & transport using docker run
     transport = new StdioClientTransport({
-      command: "bun",
-      args: ["src/mcp/index.ts"],
-      env: {
-        ...process.env,
-        API_URL: baseUrl,
-      },
+      command: "docker",
+      args: [
+        "run",
+        "-i",
+        "--rm",
+        "--network",
+        "class1_app-network",
+        "-e",
+        `API_URL=${baseUrl}`,
+        "class1-mcp:latest",
+      ],
     });
 
     mcpClient = new Client(
@@ -51,23 +52,14 @@ describe("MCP Server Integration Tests", () => {
   });
 
   afterAll(async () => {
+    if (!hasDocker) return;
     // Close MCP Client and Transport
     await mcpClient.close();
-
-    // Close Express API Server
-    await new Promise<void>((resolve, reject) => {
-      server.close((error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve();
-      });
-    });
   });
 
   beforeEach(async () => {
-    await userModel.reset();
+    if (!hasDocker) return;
+    execSync("docker exec class1-api bunx prisma db push --force-reset", { stdio: "ignore" });
   });
 
   test("should list all available tools", async () => {

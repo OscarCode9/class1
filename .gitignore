@@ -38,3 +38,8 @@ github.txt
 .antigravitycli
 .playwright-mcp
 
+# local database files
+data/*.db
+data/*.db-journal
+data/*.db-shm
+data/*.db-wal

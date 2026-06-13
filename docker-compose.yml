@@ -42,6 +42,27 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/v1/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    container_name: class1-mcp
+    restart: always
+    stdin_open: true
+    tty: true
+    environment:
+      API_URL: http://api:3000/api/v1
+    depends_on:
+      api:
+        condition: service_healthy
     networks:
       - app-network
 
