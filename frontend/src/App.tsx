@@ -1,5 +1,68 @@
+import { useState } from "react";
 import { RegisterPage } from "./pages/RegisterPage";
+import { LoginPage } from "./pages/LoginPage";
+import { DashboardPage } from "./pages/DashboardPage";
+import type { RegisteredUser } from "./types/auth";
+
+type PageType = "login" | "register" | "dashboard";
 
 export default function App() {
-  return <RegisterPage />;
+  // Read initial session from localStorage
+  const savedToken = localStorage.getItem("accessToken");
+  const savedUserStr = localStorage.getItem("user");
+
+  let initialUser: RegisteredUser | null = null;
+  if (savedUserStr) {
+    try {
+      initialUser = JSON.parse(savedUserStr) as RegisteredUser;
+    } catch {
+      localStorage.removeItem("user");
+    }
+  }
+
+  const [token, setToken] = useState<string | null>(savedToken);
+  const [user, setUser] = useState<RegisteredUser | null>(initialUser);
+  const [page, setPage] = useState<PageType>(savedToken && initialUser ? "dashboard" : "login");
+
+  const handleLoginSuccess = (result: { user: RegisteredUser; accessToken: string }) => {
+    localStorage.setItem("accessToken", result.accessToken);
+    localStorage.setItem("user", JSON.stringify(result.user));
+    setToken(result.accessToken);
+    setUser(result.user);
+    setPage("dashboard");
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("user");
+    setToken(null);
+    setUser(null);
+    setPage("login");
+  };
+
+  if (page === "dashboard" && token && user) {
+    return (
+      <DashboardPage
+        user={user}
+        token={token}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
+  if (page === "register") {
+    return (
+      <RegisterPage
+        onRegisterSuccess={handleLoginSuccess}
+        onNavigateToLogin={() => setPage("login")}
+      />
+    );
+  }
+
+  return (
+    <LoginPage
+      onLoginSuccess={handleLoginSuccess}
+      onNavigateToRegister={() => setPage("register")}
+    />
+  );
 }

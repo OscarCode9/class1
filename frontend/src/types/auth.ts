@@ -32,3 +32,18 @@ export interface ApiResponse<T> {
   data?: T;
   error?: ApiErrorPayload;
 }
+
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
+
+export type LoginField = keyof LoginPayload;
+
+export type LoginFieldErrors = Partial<Record<LoginField, string>>;
+
+export interface LoginSuccess {
+  user: RegisteredUser;
+  accessToken: string;
+}
+

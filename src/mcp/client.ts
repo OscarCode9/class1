@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+import { config } from "../config";
 import type { 
   ApiResponse, 
   HealthStatus, 
@@ -17,10 +19,31 @@ export class ApiClient {
     this.baseUrl = baseUrl || process.env.API_URL || "http://localhost:3000/api/v1";
   }
 
+  private getSystemToken(): string {
+    const iat = Math.floor(Date.now() / 1000);
+    const exp = iat + 15 * 60; // 15 minutes
+    const payload = Buffer.from(
+      JSON.stringify({
+        sub: "system-mcp",
+        email: "system@mcp.local",
+        iat,
+        exp,
+      }),
+    ).toString("base64url");
+
+    const signature = createHmac("sha256", config.accessTokenSecret)
+      .update(payload)
+      .digest("base64url");
+
+    return `${payload}.${signature}`;
+  }
+
   private async request<T>(path: string, options?: RequestInit): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${path}`;
+    const systemToken = this.getSystemToken();
     const headers = {
       "Content-Type": "application/json",
+      "Authorization": `Bearer ${systemToken}`,
       ...(options?.headers || {}),
     };
 

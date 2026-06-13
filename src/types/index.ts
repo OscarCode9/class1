@@ -82,3 +82,6 @@ export interface CreateTaskDto {
   dueDate: string | null;
   assigneeId: string | null;
 }
+
+export type UpdateTaskDto = Partial<CreateTaskDto & { status: TaskStatus }>;
+

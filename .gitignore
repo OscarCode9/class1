@@ -43,3 +43,9 @@ data/*.db
 data/*.db-journal
 data/*.db-shm
 data/*.db-wal
+
+# Playwright E2E artifacts
+test-results/
+playwright-report/
+blob-report/
+

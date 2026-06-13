@@ -1,6 +1,6 @@
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { PersonAddAlt1Rounded } from "@mui/icons-material";
-import { Typography } from "@mui/material";
+import { Button, Typography } from "@mui/material";
 import { registerUser, RegisterRequestError } from "../../api/auth";
 import { SubmitButton } from "../../atoms/SubmitButton";
 import { FormTextField } from "../../molecules/FormTextField";
@@ -18,7 +18,13 @@ import {
   StatusAlert,
   SupportingText,
   TokenPanel,
+  ActionText,
 } from "./RegisterForm.styles";
+
+interface RegisterFormProps {
+  onRegisterSuccess: (result: RegisterSuccess) => void;
+  onNavigateToLogin: () => void;
+}
 
 interface RegisterFormState {
   status: "idle" | "error" | "success";
@@ -40,9 +46,15 @@ const initialState: RegisterFormState = {
   result: null,
 };
 
-export function RegisterForm() {
+export function RegisterForm({ onRegisterSuccess, onNavigateToLogin }: RegisterFormProps) {
   const [state, submitAction] = useActionState(handleRegister, initialState);
   const formKey = state.result?.user.id ?? `${state.values.name}|${state.values.email}|${state.values.password}`;
+
+  useEffect(() => {
+    if (state.status === "success" && state.result) {
+      onRegisterSuccess(state.result);
+    }
+  }, [state.status, state.result, onRegisterSuccess]);
 
   return (
     <FormCard>
@@ -107,6 +119,18 @@ export function RegisterForm() {
         ) : null}
 
         <SubmitButton idleLabel="Crear cuenta" pendingLabel="Creando cuenta..." />
+
+        <ActionText variant="body2">
+          ¿Ya tienes una cuenta?{" "}
+          <Button
+            variant="text"
+            color="primary"
+            onClick={onNavigateToLogin}
+            style={{ fontWeight: 700, padding: 0, minWidth: "auto", textTransform: "none" }}
+          >
+            Iniciar Sesión
+          </Button>
+        </ActionText>
       </FormContent>
     </FormCard>
   );

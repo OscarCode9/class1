@@ -46,6 +46,37 @@ export function validateRegisterInput(input: unknown): RegisterUserDto {
   };
 }
 
+export interface LoginUserDto {
+  email: string;
+  password: string;
+}
+
+export function validateLoginInput(input: unknown): LoginUserDto {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
+  }
+
+  const { email, password } = input as Record<string, unknown>;
+
+  if (typeof email !== "string" || email.trim().length === 0) {
+    throw new AppError(400, "VALIDATION_ERROR", "Email is required");
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!EMAIL_PATTERN.test(normalizedEmail)) {
+    throw new AppError(400, "VALIDATION_ERROR", "A valid email is required");
+  }
+
+  if (typeof password !== "string" || password.length === 0) {
+    throw new AppError(400, "VALIDATION_ERROR", "Password is required");
+  }
+
+  return {
+    email: normalizedEmail,
+    password,
+  };
+}
+
 function isValidPassword(password: string): boolean {
   return (
     password.length >= 8 &&

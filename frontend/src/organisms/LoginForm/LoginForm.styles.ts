@@ -1,4 +1,4 @@
-import { Alert, Box, Card, Chip, Typography } from "@mui/material";
+import { Alert, Card, Typography } from "@mui/material";
 import { styled } from "@mui/material/styles";
 
 export const FormCard = styled(Card)(({ theme }) => ({
@@ -29,34 +29,13 @@ export const SupportingText = styled(Typography)(({ theme }) => ({
   maxWidth: 460,
 }));
 
-export const PasswordRules = styled(Box)(({ theme }) => ({
-  display: "flex",
-  flexWrap: "wrap",
-  gap: theme.spacing(1),
-}));
-
-export const RuleChip = styled(Chip)(({ theme }) => ({
-  borderRadius: 999,
-  backgroundColor: "rgba(18, 76, 90, 0.08)",
-  color: theme.palette.secondary.dark,
-}));
-
 export const StatusAlert = styled(Alert)({
   borderRadius: 18,
   alignItems: "center",
 });
-
-export const TokenPanel = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(2),
-  borderRadius: 18,
-  background: "rgba(18, 76, 90, 0.08)",
-  border: "1px solid rgba(18, 76, 90, 0.12)",
-  overflowWrap: "anywhere",
-}));
 
 export const ActionText = styled(Typography)(({ theme }) => ({
   color: theme.palette.text.secondary,
   textAlign: "center",
   marginTop: theme.spacing(1),
 }));
-

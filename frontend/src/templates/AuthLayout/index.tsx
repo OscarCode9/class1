@@ -12,19 +12,29 @@ import {
 
 interface AuthLayoutProps {
   children: ReactNode;
+  title?: ReactNode;
+  subtitle?: ReactNode;
+  chipLabel?: string;
 }
 
-export function AuthLayout({ children }: AuthLayoutProps) {
+export function AuthLayout({
+  children,
+  title = "Registro listo para integrarse.",
+  subtitle = (
+    <>
+      Este frontend queda conectado al backend local por medio del proxy de
+      Vite, apuntando al endpoint real <code>POST /api/v1/auth/register</code>.
+    </>
+  ),
+  chipLabel = "RF-10 Registro de usuario",
+}: AuthLayoutProps) {
   return (
     <LayoutRoot>
       <LayoutContainer maxWidth="lg">
         <HeroPanel>
-          <Chip label="RF-10 Registro de usuario" color="secondary" />
-          <HeroTitle variant="h1">Registro listo para integrarse.</HeroTitle>
-          <HeroSubtitle variant="h6">
-            Este frontend queda conectado al backend local por medio del proxy de
-            Vite, apuntando al endpoint real <code>POST /api/v1/auth/register</code>.
-          </HeroSubtitle>
+          <Chip label={chipLabel} color="secondary" style={{ width: "fit-content" }} />
+          <HeroTitle variant="h1">{title}</HeroTitle>
+          <HeroSubtitle variant="h6">{subtitle}</HeroSubtitle>
           <FeatureList>
             <Chip label="React 19 + MUI" />
             <Chip label="Estructura atómica ligera" />
@@ -37,3 +47,4 @@ export function AuthLayout({ children }: AuthLayoutProps) {
     </LayoutRoot>
   );
 }
+

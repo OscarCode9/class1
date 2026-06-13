@@ -4,6 +4,9 @@ import type {
   RegisterFieldErrors,
   RegisterPayload,
   RegisterSuccess,
+  LoginPayload,
+  LoginSuccess,
+  LoginFieldErrors,
 } from "../types/auth";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
@@ -130,4 +133,61 @@ function getFieldName(detail: object): RegisterField | null {
   }
 
   return null;
+}
+
+export class LoginRequestError extends Error {
+  readonly code: string;
+  readonly fieldErrors: LoginFieldErrors;
+
+  constructor(code: string, message: string, fieldErrors: LoginFieldErrors = {}) {
+    super(message);
+    this.code = code;
+    this.fieldErrors = fieldErrors;
+  }
+}
+
+export async function loginUser(payload: LoginPayload): Promise<LoginSuccess> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}/v1/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    throw new LoginRequestError(
+      "NETWORK_ERROR",
+      "No se pudo conectar con el backend local. Levanta el API antes de intentar iniciar sesión.",
+    );
+  }
+
+  const body = await response.json() as ApiResponse<LoginSuccess>;
+
+  if (!response.ok || !body.success || !body.data) {
+    const message = body.error?.message || "No se pudo iniciar sesión.";
+
+    // Map fields
+    const fieldErrors: LoginFieldErrors = {};
+    const normalizedMessage = message.toLowerCase();
+    if (normalizedMessage.includes("email")) {
+      fieldErrors.email = message;
+    } else if (normalizedMessage.includes("password") || normalizedMessage.includes("contrase")) {
+      fieldErrors.password = message;
+    } else {
+      // General error (e.g. invalid credentials)
+      fieldErrors.email = message;
+      fieldErrors.password = message;
+    }
+
+    throw new LoginRequestError(
+      body.error?.code ?? "REQUEST_FAILED",
+      message,
+      fieldErrors,
+    );
+  }
+
+  return body.data;
 }
