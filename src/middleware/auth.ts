@@ -13,7 +13,7 @@ export interface AuthenticatedRequest extends Request {
 
 export async function authMiddleware(
   req: AuthenticatedRequest,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ) {
   const authHeader = req.headers.authorization;

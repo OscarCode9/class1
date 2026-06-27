@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useOptimistic, startTransition } from "react";
 import {
   AddRounded,
   LogoutRounded,
@@ -129,6 +129,20 @@ const priorityOptions: { value: TaskPriority; label: string; color: "default" | 
 
 export function DashboardPage({ user, token, onLogout }: DashboardPageProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [optimisticTasks, addOptimisticTask] = useOptimistic<
+    Task[],
+    { type: "update" | "delete"; id: string; status?: TaskStatus }
+  >(tasks, (state, action) => {
+    if (action.type === "update") {
+      return state.map((t) =>
+        t.id === action.id ? { ...t, status: action.status! } : t
+      );
+    }
+    if (action.type === "delete") {
+      return state.filter((t) => t.id !== action.id);
+    }
+    return state;
+  });
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -236,7 +250,7 @@ export function DashboardPage({ user, token, onLogout }: DashboardPageProps) {
         errors.tags = "Cada etiqueta debe tener entre 1 y 30 caracteres.";
         break;
       }
-      if (!/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]+$/.test(tag)) {
+      if (!/^[\p{L}\p{N}]+$/u.test(tag)) {
         errors.tags = "Las etiquetas deben ser alfanuméricas.";
         break;
       }
@@ -289,7 +303,7 @@ export function DashboardPage({ user, token, onLogout }: DashboardPageProps) {
     }
   };
 
-  const handleUpdateStatus = async (task: Task, newStatus: TaskStatus) => {
+  const handleUpdateStatus = (task: Task, newStatus: TaskStatus) => {
     // Validate transitions locally according to RF-07
     const currentStatus = task.status;
     let allowed = false;
@@ -309,24 +323,30 @@ export function DashboardPage({ user, token, onLogout }: DashboardPageProps) {
       return;
     }
 
-    try {
-      await updateTask(token, task.id, { status: newStatus });
-      fetchTasksList();
-    } catch (err: any) {
-      setErrorMsg(err.message || "No se pudo actualizar el estado de la tarea.");
-    }
+    startTransition(async () => {
+      addOptimisticTask({ type: "update", id: task.id, status: newStatus });
+      try {
+        await updateTask(token, task.id, { status: newStatus });
+        fetchTasksList();
+      } catch (err: any) {
+        setErrorMsg(err.message || "No se pudo actualizar el estado de la tarea.");
+      }
+    });
   };
 
-  const handleDeleteTask = async (id: string) => {
+  const handleDeleteTask = (id: string) => {
     if (!window.confirm("¿Estás seguro de que deseas eliminar esta tarea?")) {
       return;
     }
-    try {
-      await deleteTask(token, id);
-      fetchTasksList();
-    } catch (err: any) {
-      setErrorMsg(err.message || "No se pudo eliminar la tarea.");
-    }
+    startTransition(async () => {
+      addOptimisticTask({ type: "delete", id });
+      try {
+        await deleteTask(token, id);
+        fetchTasksList();
+      } catch (err: any) {
+        setErrorMsg(err.message || "No se pudo eliminar la tarea.");
+      }
+    });
   };
 
   const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
@@ -527,7 +547,7 @@ export function DashboardPage({ user, token, onLogout }: DashboardPageProps) {
               Cargando tareas...
             </Typography>
           </Box>
-        ) : tasks.length === 0 ? (
+        ) : optimisticTasks.length === 0 ? (
           <Card sx={{ borderRadius: 5, textAlign: "center", py: 8, background: "rgba(255,255,255,0.4)" }}>
             <Typography variant="h6" color="text.secondary">
               No se encontraron tareas.
@@ -542,7 +562,7 @@ export function DashboardPage({ user, token, onLogout }: DashboardPageProps) {
             gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
             gap: 3
           }}>
-            {tasks.map((task) => (
+            {optimisticTasks.map((task) => (
               <Box key={task.id}>
                 <TaskCard status={task.status}>
                   <CardContent sx={{ pb: 1 }}>

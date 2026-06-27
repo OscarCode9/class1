@@ -5,7 +5,7 @@ const MAX_TITLE_LENGTH = 200;
 const MAX_DESCRIPTION_LENGTH = 2000;
 const MAX_TAGS = 10;
 const MAX_TAG_LENGTH = 30;
-const TAG_PATTERN = /^[a-zA-Z0-9]+$/;
+const TAG_PATTERN = /^[\p{L}\p{N}]+$/u;
 
 export function validateCreateTaskInput(input: unknown): CreateTaskDto {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -94,8 +94,12 @@ export function validateCreateTaskInput(input: unknown): CreateTaskDto {
   };
 }
 
+function isInArray<const T>(arr: readonly T[], val: unknown): val is T {
+  return arr.includes(val as T);
+}
+
 function isTaskPriority(value: string): value is TaskPriority {
-  return TASK_PRIORITIES.includes(value as TaskPriority);
+  return isInArray(TASK_PRIORITIES, value);
 }
 
 function normalizeTag(tag: unknown): string {
@@ -202,6 +206,5 @@ export function validateUpdateTaskInput(input: unknown): UpdateTaskDto {
 }
 
 function isTaskStatus(value: string): value is TaskStatus {
-  return TASK_STATUSES.includes(value as TaskStatus);
+  return isInArray(TASK_STATUSES, value);
 }
-

@@ -134,19 +134,24 @@ export function createTaskRoutes(): Router {
   router.get(
     "/:id",
     asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-      const task = await taskModel.findById(req.params.id);
+      const { id } = req.params;
+      if (typeof id !== "string") {
+        throw new AppError(400, "VALIDATION_ERROR", "Task ID must be a string");
+      }
+
+      const task = await taskModel.findById(id);
       if (!task) {
         throw new AppError(404, "TASK_NOT_FOUND", "Task not found");
       }
 
-      const body: ApiResponse<Task> = {
+      const body = {
         success: true,
         data: task,
         meta: {
           timestamp: new Date().toISOString(),
           version: "v1",
         },
-      };
+      } satisfies ApiResponse<Task>;
 
       res.status(200).json(body);
     }),
@@ -156,9 +161,14 @@ export function createTaskRoutes(): Router {
   router.put(
     "/:id",
     asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+      const { id } = req.params;
+      if (typeof id !== "string") {
+        throw new AppError(400, "VALIDATION_ERROR", "Task ID must be a string");
+      }
+
       const dto = validateUpdateTaskInput(req.body);
 
-      const existingTask = await taskModel.findById(req.params.id);
+      const existingTask = await taskModel.findById(id);
       if (!existingTask) {
         throw new AppError(404, "TASK_NOT_FOUND", "Task not found");
       }
@@ -178,19 +188,19 @@ export function createTaskRoutes(): Router {
         }
       }
 
-      const updatedTask = await taskModel.update(req.params.id, dto);
+      const updatedTask = await taskModel.update(id, dto);
       if (!updatedTask) {
         throw new AppError(404, "TASK_NOT_FOUND", "Task not found");
       }
 
-      const body: ApiResponse<Task> = {
+      const body = {
         success: true,
         data: updatedTask,
         meta: {
           timestamp: new Date().toISOString(),
           version: "v1",
         },
-      };
+      } satisfies ApiResponse<Task>;
 
       res.status(200).json(body);
     }),
@@ -200,12 +210,17 @@ export function createTaskRoutes(): Router {
   router.delete(
     "/:id",
     asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-      const existingTask = await taskModel.findById(req.params.id);
+      const { id } = req.params;
+      if (typeof id !== "string") {
+        throw new AppError(400, "VALIDATION_ERROR", "Task ID must be a string");
+      }
+
+      const existingTask = await taskModel.findById(id);
       if (!existingTask) {
         throw new AppError(404, "TASK_NOT_FOUND", "Task not found");
       }
 
-      await taskModel.delete(req.params.id);
+      await taskModel.delete(id);
 
       const body = {
         success: true,
@@ -214,7 +229,7 @@ export function createTaskRoutes(): Router {
           timestamp: new Date().toISOString(),
           version: "v1",
         },
-      };
+      } satisfies ApiResponse<{ success: boolean }>;
 
       res.status(200).json(body);
     }),

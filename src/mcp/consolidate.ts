@@ -1,11 +1,8 @@
 import { Database } from "bun:sqlite";
 import * as path from "node:path";
-import * as fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DEFAULT_DB_PATH = path.resolve(__dirname, "../../data/knowledge.db");
-const DB_PATH = process.env.KNOWLEDGE_DB_PATH || DEFAULT_DB_PATH;
 const OLLAMA_GENERATE_URL = "http://localhost:11434/api/generate";
 const OLLAMA_EMBED_URL = "http://localhost:11434/api/embeddings";
 const EMBED_MODEL = "mxbai-embed-large";

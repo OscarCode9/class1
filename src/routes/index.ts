@@ -22,21 +22,21 @@ export function createRoutes(): Router {
     asyncHandler(async (_req: Request, res: Response) => {
       const uptime = Math.floor((Date.now() - startTime) / 1000);
 
-      const health: HealthStatus = {
+      const health = {
         status: "healthy",
         uptime,
         timestamp: new Date().toISOString(),
         version: "1.0.0",
-      };
+      } satisfies HealthStatus;
 
-      const body: ApiResponse<HealthStatus> = {
+      const body = {
         success: true,
         data: health,
         meta: {
           timestamp: new Date().toISOString(),
           version: "v1",
         },
-      };
+      } satisfies ApiResponse<HealthStatus>;
 
       res.json(body);
     }),

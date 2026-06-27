@@ -21,6 +21,15 @@ describe("validateCreateTaskInput", () => {
     });
   });
 
+  test("accepts alphanumeric tags with Spanish letters", () => {
+    expect(
+      validateCreateTaskInput({
+        title: "Diseñar flujo",
+        tags: ["diseño1", "año2026"],
+      }).tags,
+    ).toEqual(["diseño1", "año2026"]);
+  });
+
   test("rejects a non-future due date", () => {
     expect(() =>
       validateCreateTaskInput({

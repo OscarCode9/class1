@@ -80,7 +80,7 @@ async function runDiagnosticsForServer(
       env: {
         ...process.env,
         ...envVars,
-      },
+      } as Record<string, string>,
     });
 
     client = new Client(
