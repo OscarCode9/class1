@@ -5,9 +5,10 @@ import type { LoginSuccess } from "../../types/auth";
 interface LoginPageProps {
   onLoginSuccess: (result: LoginSuccess) => void;
   onNavigateToRegister: () => void;
+  onToggleTheme: () => void;
 }
 
-export function LoginPage({ onLoginSuccess, onNavigateToRegister }: LoginPageProps) {
+export function LoginPage({ onLoginSuccess, onNavigateToRegister, onToggleTheme }: LoginPageProps) {
   return (
     <AuthLayout
       title="Acceso al Task Manager"
@@ -18,6 +19,7 @@ export function LoginPage({ onLoginSuccess, onNavigateToRegister }: LoginPagePro
         </>
       }
       chipLabel="RF-11 Inicio de sesión"
+      onToggleTheme={onToggleTheme}
     >
       <LoginForm
         onLoginSuccess={onLoginSuccess}

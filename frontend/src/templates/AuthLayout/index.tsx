@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Chip } from "@mui/material";
+import { Chip, IconButton, Tooltip, useTheme, Box } from "@mui/material";
+import { DarkModeRounded, LightModeRounded } from "@mui/icons-material";
 import {
   FeatureList,
   FormPanel,
@@ -15,6 +16,7 @@ interface AuthLayoutProps {
   title?: ReactNode;
   subtitle?: ReactNode;
   chipLabel?: string;
+  onToggleTheme?: () => void;
 }
 
 export function AuthLayout({
@@ -27,9 +29,21 @@ export function AuthLayout({
     </>
   ),
   chipLabel = "RF-10 Registro de usuario",
+  onToggleTheme,
 }: AuthLayoutProps) {
+  const theme = useTheme();
+
   return (
-    <LayoutRoot>
+    <LayoutRoot sx={{ position: "relative" }}>
+      {onToggleTheme && (
+        <Box sx={{ position: "absolute", top: 24, right: 24, zIndex: 10 }}>
+          <Tooltip title={theme.palette.mode === "light" ? "Modo Oscuro" : "Modo Claro"}>
+            <IconButton onClick={onToggleTheme} color="primary" sx={{ background: theme.palette.mode === "light" ? "rgba(255, 255, 255, 0.7)" : "rgba(30, 30, 30, 0.7)", backdropFilter: "blur(4px)" }}>
+              {theme.palette.mode === "light" ? <DarkModeRounded /> : <LightModeRounded />}
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )}
       <LayoutContainer maxWidth="lg">
         <HeroPanel>
           <Chip label={chipLabel} color="secondary" style={{ width: "fit-content" }} />

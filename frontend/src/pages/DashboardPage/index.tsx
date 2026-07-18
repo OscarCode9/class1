@@ -11,6 +11,8 @@ import {
   SearchRounded,
   LabelRounded,
   RefreshRounded,
+  DarkModeRounded,
+  LightModeRounded,
 } from "@mui/icons-material";
 import {
   Container,
@@ -35,6 +37,7 @@ import {
   Stack,
   Alert,
   Tooltip,
+  useTheme,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import { listTasks, createTask, updateTask, deleteTask } from "../../api/tasks";
@@ -44,11 +47,17 @@ import type { RegisteredUser } from "../../types/auth";
 const DashboardRoot = styled(Box)(({ theme }) => ({
   minHeight: "100vh",
   padding: theme.spacing(4, 0),
-  background: `
-    radial-gradient(circle at top right, rgba(127, 181, 190, 0.4), transparent 30%),
-    radial-gradient(circle at bottom left, rgba(241, 179, 139, 0.3), transparent 35%),
-    linear-gradient(135deg, #f5efe6 0%, #fffbf7 100%)
-  `,
+  background: theme.palette.mode === "light"
+    ? `
+      radial-gradient(circle at top right, rgba(127, 181, 190, 0.4), transparent 30%),
+      radial-gradient(circle at bottom left, rgba(241, 179, 139, 0.3), transparent 35%),
+      linear-gradient(135deg, #f5efe6 0%, #fffbf7 100%)
+    `
+    : `
+      radial-gradient(circle at top right, rgba(127, 181, 190, 0.15), transparent 30%),
+      radial-gradient(circle at bottom left, rgba(199, 92, 42, 0.1), transparent 35%),
+      linear-gradient(135deg, #121212 0%, #1e1e1e 100%)
+    `,
 }));
 
 const AppHeader = styled(Box)(({ theme }) => ({
@@ -58,35 +67,35 @@ const AppHeader = styled(Box)(({ theme }) => ({
   marginBottom: theme.spacing(4),
   padding: theme.spacing(2, 3),
   borderRadius: 24,
-  background: "rgba(255, 250, 244, 0.8)",
-  border: "1px solid rgba(18, 76, 90, 0.08)",
+  background: theme.palette.mode === "light" ? "rgba(255, 250, 244, 0.8)" : "rgba(30, 30, 30, 0.8)",
+  border: theme.palette.mode === "light" ? "1px solid rgba(18, 76, 90, 0.08)" : "1px solid rgba(255, 255, 255, 0.08)",
   backdropFilter: "blur(12px)",
-  boxShadow: "0 10px 30px rgba(35, 22, 15, 0.04)",
+  boxShadow: theme.palette.mode === "light" ? "0 10px 30px rgba(35, 22, 15, 0.04)" : "0 10px 30px rgba(0, 0, 0, 0.3)",
 }));
 
 const ControlPanel = styled(Card)(({ theme }) => ({
   borderRadius: 20,
   padding: theme.spacing(3),
   marginBottom: theme.spacing(4),
-  background: "rgba(255, 255, 255, 0.7)",
-  border: "1px solid rgba(18, 76, 90, 0.05)",
+  background: theme.palette.mode === "light" ? "rgba(255, 255, 255, 0.7)" : "rgba(30, 30, 30, 0.7)",
+  border: theme.palette.mode === "light" ? "1px solid rgba(18, 76, 90, 0.05)" : "1px solid rgba(255, 255, 255, 0.05)",
   backdropFilter: "blur(12px)",
-  boxShadow: "0 10px 30px rgba(35, 22, 15, 0.04)",
+  boxShadow: theme.palette.mode === "light" ? "0 10px 30px rgba(35, 22, 15, 0.04)" : "0 10px 30px rgba(0, 0, 0, 0.3)",
 }));
 
 const TaskCard = styled(Card, {
   shouldForwardProp: (prop) => prop !== "status",
 })<{ status: TaskStatus }>(({ theme, status }) => {
   const statusBorders: Record<TaskStatus, string> = {
-    pending: "rgba(35, 22, 15, 0.1)",
+    pending: theme.palette.mode === "light" ? "rgba(35, 22, 15, 0.1)" : "rgba(255, 255, 255, 0.1)",
     in_progress: "rgba(199, 92, 42, 0.25)",
     completed: "rgba(18, 76, 90, 0.25)",
-    cancelled: "rgba(0, 0, 0, 0.15)",
+    cancelled: theme.palette.mode === "light" ? "rgba(0, 0, 0, 0.15)" : "rgba(255, 255, 255, 0.15)",
   };
 
   return {
     borderRadius: 20,
-    background: "rgba(255, 250, 244, 0.85)",
+    background: theme.palette.mode === "light" ? "rgba(255, 250, 244, 0.85)" : "rgba(30, 30, 30, 0.85)",
     backdropFilter: "blur(10px)",
     border: `1px solid ${statusBorders[status]}`,
     borderLeft: `6px solid ${
@@ -98,11 +107,11 @@ const TaskCard = styled(Card, {
         ? "#777"
         : "#9c8c82"
     }`,
-    boxShadow: "0 12px 24px rgba(35, 22, 15, 0.05)",
+    boxShadow: theme.palette.mode === "light" ? "0 12px 24px rgba(35, 22, 15, 0.05)" : "0 12px 24px rgba(0, 0, 0, 0.3)",
     transition: "transform 200ms ease, box-shadow 200ms ease",
     "&:hover": {
       transform: "translateY(-3px)",
-      boxShadow: "0 16px 36px rgba(35, 22, 15, 0.09)",
+      boxShadow: theme.palette.mode === "light" ? "0 16px 36px rgba(35, 22, 15, 0.09)" : "0 16px 36px rgba(0, 0, 0, 0.4)",
     },
   };
 });
@@ -111,6 +120,7 @@ interface DashboardPageProps {
   user: RegisteredUser;
   token: string;
   onLogout: () => void;
+  onToggleTheme: () => void;
 }
 
 const statusOptions: { value: TaskStatus; label: string; icon: any }[] = [
@@ -127,7 +137,8 @@ const priorityOptions: { value: TaskPriority; label: string; color: "default" | 
   { value: "critical", label: "Crítica", color: "error" },
 ];
 
-export function DashboardPage({ user, token, onLogout }: DashboardPageProps) {
+export function DashboardPage({ user, token, onLogout, onToggleTheme }: DashboardPageProps) {
+  const theme = useTheme();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [optimisticTasks, addOptimisticTask] = useOptimistic<
     Task[],
@@ -381,7 +392,12 @@ export function DashboardPage({ user, token, onLogout }: DashboardPageProps) {
               Conectado como: <strong>{user.name}</strong> ({user.email})
             </Typography>
           </Box>
-          <Box sx={{ display: "flex", gap: 1.5 }}>
+          <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
+            <Tooltip title={theme.palette.mode === "light" ? "Modo Oscuro" : "Modo Claro"}>
+              <IconButton onClick={onToggleTheme} color="primary">
+                {theme.palette.mode === "light" ? <DarkModeRounded /> : <LightModeRounded />}
+              </IconButton>
+            </Tooltip>
             <Tooltip title="Recargar lista">
               <IconButton onClick={fetchTasksList} color="secondary">
                 <RefreshRounded />

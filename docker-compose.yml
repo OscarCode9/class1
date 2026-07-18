@@ -28,7 +28,7 @@ services:
     container_name: class1-api
     restart: always
     ports:
-      - "${PORT:-3000}:3000"
+      - "6060:3000"
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -56,10 +56,12 @@ services:
       dockerfile: Dockerfile.mcp
     container_name: class1-mcp
     restart: always
-    stdin_open: true
-    tty: true
+    ports:
+      - "${MCP_PORT:-3001}:3000"
     environment:
       API_URL: http://api:3000/api/v1
+      USE_SSE: "true"
+      PORT: 3000
     depends_on:
       api:
         condition: service_healthy
@@ -73,7 +75,7 @@ services:
     container_name: class1-frontend
     restart: always
     ports:
-      - "${FRONTEND_PORT:-80}:80"
+      - "80:80"
     depends_on:
       - api
     networks:

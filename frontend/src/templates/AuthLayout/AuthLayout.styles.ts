@@ -3,11 +3,17 @@ import { styled } from "@mui/material/styles";
 
 export const LayoutRoot = styled(Box)(({ theme }) => ({
   minHeight: "100vh",
-  background: `
-    radial-gradient(circle at top left, rgba(241, 179, 139, 0.9), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(18, 76, 90, 0.16), transparent 34%),
-    linear-gradient(145deg, #f5efe6 0%, #f1e2d3 48%, #fff8f0 100%)
-  `,
+  background: theme.palette.mode === "light"
+    ? `
+      radial-gradient(circle at top left, rgba(241, 179, 139, 0.9), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(18, 76, 90, 0.16), transparent 34%),
+      linear-gradient(145deg, #f5efe6 0%, #f1e2d3 48%, #fff8f0 100%)
+    `
+    : `
+      radial-gradient(circle at top left, rgba(241, 179, 139, 0.3), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(18, 76, 90, 0.08), transparent 34%),
+      linear-gradient(145deg, #121212 0%, #1c1c1c 48%, #242424 100%)
+    `,
   display: "flex",
   alignItems: "center",
   padding: theme.spacing(3, 0),

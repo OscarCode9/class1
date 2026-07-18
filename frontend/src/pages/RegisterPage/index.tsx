@@ -5,11 +5,12 @@ import type { RegisterSuccess } from "../../types/auth";
 interface RegisterPageProps {
   onRegisterSuccess: (result: RegisterSuccess) => void;
   onNavigateToLogin: () => void;
+  onToggleTheme: () => void;
 }
 
-export function RegisterPage({ onRegisterSuccess, onNavigateToLogin }: RegisterPageProps) {
+export function RegisterPage({ onRegisterSuccess, onNavigateToLogin, onToggleTheme }: RegisterPageProps) {
   return (
-    <AuthLayout>
+    <AuthLayout onToggleTheme={onToggleTheme}>
       <RegisterForm
         onRegisterSuccess={onRegisterSuccess}
         onNavigateToLogin={onNavigateToLogin}

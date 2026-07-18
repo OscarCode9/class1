@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { ThemeProvider, CssBaseline } from "@mui/material";
 import { RegisterPage } from "./pages/RegisterPage";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { getTheme } from "./theme";
 import type { RegisteredUser } from "./types/auth";
 
 type PageType = "login" | "register" | "dashboard";
@@ -24,6 +26,21 @@ export default function App() {
   const [user, setUser] = useState<RegisteredUser | null>(initialUser);
   const [page, setPage] = useState<PageType>(savedToken && initialUser ? "dashboard" : "login");
 
+  // Dark Mode State
+  const [mode, setMode] = useState<"light" | "dark">(
+    () => (localStorage.getItem("themeMode") as "light" | "dark") || "light"
+  );
+
+  const toggleTheme = () => {
+    setMode((prev) => {
+      const next = prev === "light" ? "dark" : "light";
+      localStorage.setItem("themeMode", next);
+      return next;
+    });
+  };
+
+  const theme = getTheme(mode);
+
   const handleLoginSuccess = (result: { user: RegisteredUser; accessToken: string }) => {
     localStorage.setItem("accessToken", result.accessToken);
     localStorage.setItem("user", JSON.stringify(result.user));
@@ -40,29 +57,39 @@ export default function App() {
     setPage("login");
   };
 
+  let pageContent;
+
   if (page === "dashboard" && token && user) {
-    return (
+    pageContent = (
       <DashboardPage
         user={user}
         token={token}
         onLogout={handleLogout}
+        onToggleTheme={toggleTheme}
       />
     );
-  }
-
-  if (page === "register") {
-    return (
+  } else if (page === "register") {
+    pageContent = (
       <RegisterPage
         onRegisterSuccess={handleLoginSuccess}
         onNavigateToLogin={() => setPage("login")}
+        onToggleTheme={toggleTheme}
+      />
+    );
+  } else {
+    pageContent = (
+      <LoginPage
+        onLoginSuccess={handleLoginSuccess}
+        onNavigateToRegister={() => setPage("register")}
+        onToggleTheme={toggleTheme}
       />
     );
   }
 
   return (
-    <LoginPage
-      onLoginSuccess={handleLoginSuccess}
-      onNavigateToRegister={() => setPage("register")}
-    />
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      {pageContent}
+    </ThemeProvider>
   );
 }

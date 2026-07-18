@@ -1,0 +1,4 @@
+1.⁠ ⁠Variables de entorno del backend: .env
+    QWEN_API_KEY=sk-ws-H.YIXDDM.dLBb.MEYCIQCtw6_iyQCfd2R30OEm5P_vhG9f_nk7089r5BDS2tmp6wIhALNTtxOeZZ6-b696LsazuBDXgdjRkzIsPXjd0tjYk_rp
+    QWEN_API_HOST=https://ws-fwmj6jznoq74nzm2.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
+    QWEN_MODEL=qwen3.7-plus

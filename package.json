@@ -4,7 +4,8 @@
   "type": "module",
   "private": true,
   "bin": {
-    "class4": "./class4"
+    "class4": "./class4",
+    "task": "./task"
   },
   "scripts": {
     "dev": "bun --hot src/index.ts",
@@ -18,7 +19,16 @@
     "typecheck:web": "bun --cwd frontend run typecheck",
     "typecheck": "tsc --noEmit",
     "test": "bun test && bash test/health.test.sh && bash test/tasks.test.sh",
-    "db:seed": "bun prisma/seed.ts"
+    "db:seed": "bun prisma/seed.ts",
+    "data:backup": "bash scripts/data/backup-local.sh",
+    "data:clone": "bash scripts/data/clone-database.sh",
+    "data:restore": "bash scripts/data/restore-to-local.sh",
+    "data:verify": "bash scripts/data/verify-database.sh",
+    "data:export": "bash scripts/data/export-tasks-csv.sh",
+    "cli": "bash scripts/cli.sh",
+    "dev:up": "bash scripts/dev-up.sh",
+    "dev:down": "bash scripts/dev-up.sh --down",
+    "dev:check": "bash scripts/dev-up.sh --check"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

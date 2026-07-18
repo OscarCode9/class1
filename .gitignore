@@ -21,6 +21,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .env.test.local
 .env.production.local
 .env.local
+.cli-token
+.dev/
 
 # caches
 .eslintcache
@@ -33,6 +35,10 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # secrets
 github.txt
 *.token
+AWS.txt
+aws.txt
+hostinguer.txt
+
 
 # Agent CLI and local automation tools
 .antigravitycli
@@ -43,9 +49,20 @@ data/*.db
 data/*.db-journal
 data/*.db-shm
 data/*.db-wal
+data/backups/
+backups/
+data/exports/
 
 # Playwright E2E artifacts
 test-results/
 playwright-report/
 blob-report/
 
+# OS metadata
+.DS_Store
+
+# IDE and temporary directories
+.vscode/
+tmp/
+output/
+.grok/

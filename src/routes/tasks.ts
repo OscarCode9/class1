@@ -5,6 +5,7 @@ import { AppError } from "../middleware/errorHandler";
 import { authMiddleware, type AuthenticatedRequest } from "../middleware/auth";
 import type { ApiResponse, Task, TaskStatus, TaskPriority } from "../types";
 import { validateCreateTaskInput, validateUpdateTaskInput } from "../validators/task";
+import { isValidTransition } from "../domain/task-status";
 
 const TASK_STATUSES = ["pending", "in_progress", "completed", "cancelled"];
 const TASK_PRIORITIES = ["low", "medium", "high", "critical"];
@@ -17,19 +18,7 @@ function asyncHandler(
   };
 }
 
-function isValidTransition(from: TaskStatus, to: TaskStatus): boolean {
-  if (from === to) return true;
-  if (from === "pending") {
-    return to === "in_progress" || to === "cancelled";
-  }
-  if (from === "in_progress") {
-    return to === "completed" || to === "cancelled";
-  }
-  if (from === "completed") {
-    return to === "cancelled";
-  }
-  return false;
-}
+
 
 export function createTaskRoutes(): Router {
   const router = Router();

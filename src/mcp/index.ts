@@ -1,5 +1,7 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import express from "express";
 import { z } from "zod";
 import { ApiClient } from "./client.ts";
 import { readFileSync } from "node:fs";
@@ -443,9 +445,50 @@ server.registerPrompt(
 // ==========================================
 
 async function run() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("Task Manager MCP Server running on stdio transport");
+  const useSse = process.argv.includes("--sse") || process.env.USE_SSE === "true";
+
+  if (useSse) {
+    const app = express();
+    app.use(express.json());
+
+    const transports: Record<string, SSEServerTransport> = {};
+
+    // Health check endpoint for ALB target group
+    app.get("/health", (_req, res) => {
+      res.status(200).send("OK");
+    });
+
+    app.get("/sse", async (_req, res) => {
+      const transport = new SSEServerTransport("/messages", res);
+      transports[transport.sessionId] = transport;
+
+      res.on("close", () => {
+        delete transports[transport.sessionId];
+      });
+
+      await server.connect(transport);
+    });
+
+    app.post("/messages", async (req, res) => {
+      const sessionId = req.query.sessionId as string;
+      const transport = transports[sessionId];
+
+      if (transport) {
+        await transport.handlePostMessage(req, res);
+      } else {
+        res.status(400).send("No transport found for this session");
+      }
+    });
+
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+      console.error(`Task Manager MCP Server running on SSE at http://localhost:${PORT}/sse`);
+    });
+  } else {
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    console.error("Task Manager MCP Server running on stdio transport");
+  }
 }
 
 run().catch((error) => {
