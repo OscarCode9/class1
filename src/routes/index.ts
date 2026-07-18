@@ -3,6 +3,7 @@ import type { ApiResponse, HealthStatus } from "../types";
 import { createAuthRoutes } from "./auth";
 import { createTaskRoutes } from "./tasks";
 import { createUserRoutes } from "./users";
+import { createAgentRoutes } from "./agent";
 
 const startTime = Date.now();
 
@@ -45,6 +46,7 @@ export function createRoutes(): Router {
   router.use("/auth", createAuthRoutes());
   router.use("/users", createUserRoutes());
   router.use("/tasks", createTaskRoutes());
+  router.use("/agent", createAgentRoutes());
 
   return router;
 }
