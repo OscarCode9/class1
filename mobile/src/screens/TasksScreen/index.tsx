@@ -4,7 +4,10 @@ import {
   RefreshControl,
   Text,
   View,
+  Pressable,
 } from 'react-native';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { MainTemplate } from '@/templates/MainTemplate';
 import { FilterPanel } from '@/organisms/FilterPanel';
 import { ListHeader } from '@/organisms/ListHeader';
@@ -93,6 +96,16 @@ export const TasksScreen = () => {
         onClose={closeForm}
         onSave={saveTask}
       />
+
+      {/* Floating Action Button (FAB) for Chat Agent */}
+      <Pressable
+        style={[styles.fab, { backgroundColor: c.primary }]}
+        onPress={() => router.push('/agent')}
+        accessibilityRole="button"
+        accessibilityLabel="Abrir chat con el agente"
+      >
+        <Ionicons name="chatbubble-ellipses" size={24} color="#ffffff" />
+      </Pressable>
     </MainTemplate>
   );
 };
