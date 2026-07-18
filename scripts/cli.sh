@@ -250,6 +250,12 @@ cmd_task_get() {
   api_curl GET "/tasks/${id}" | json_pretty
 }
 
+cmd_task_chat() {
+  local msg="$*"
+  [[ -n "$msg" ]] || die "Usage: task chat <message>"
+  bun run "$ROOT_DIR/scripts/test-provider.ts" "$msg"
+}
+
 show_help() {
   cat <<EOF
 class1 CLI — inspect API data with curl
@@ -263,6 +269,7 @@ Commands:
   task get all           GET all tasks (paginates until every row)
   tasks get all          Alias of task get all
   task get <id>          GET one task by id
+  task chat <message>    Send message to Qwen LLM Provider
   help                   Show this help
 
 Environment:
@@ -311,6 +318,12 @@ main() {
   # task get <id>
   if [[ "${1:-}" == "task" || "${1:-}" == "tasks" ]] && [[ "${2:-}" == "get" ]] && [[ -n "${3:-}" ]]; then
     cmd_task_get "$3"
+    return
+  fi
+
+  # task chat <message>
+  if [[ "${1:-}" == "task" || "${1:-}" == "tasks" ]] && [[ "${2:-}" == "chat" ]] && [[ -n "${3:-}" ]]; then
+    cmd_task_chat "${@:3}"
     return
   fi
 
