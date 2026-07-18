@@ -43,6 +43,15 @@ export default function MainTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="agent"
+        options={{
+          title: 'Agente',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubble-ellipses-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="tags"
         options={{
           title: 'Etiquetas',
