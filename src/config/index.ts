@@ -13,4 +13,9 @@ export const config = {
   isProduction: process.env.NODE_ENV === "production",
   apiVersion: "v1",
   accessTokenSecret: env("ACCESS_TOKEN_SECRET", "dev-access-token-secret"),
+  qwen: {
+    apiKey: process.env.QWEN_API_KEY,
+    apiHost: process.env.QWEN_API_HOST || "https://dashscope-international.aliyuncs.com/compatible-mode/v1",
+    model: process.env.QWEN_MODEL || "qwen-plus",
+  },
 } as const;
